@@ -20,7 +20,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract ConditionalVault is Ownable {
     address[] public tokenWhitelist;
 
-    enum ComparisonOperator {GREATER_THAN, LESSER_THAN, EQUAL_TO}
+    enum ComparisonOperator {
+        GREATER_THAN,
+        GREATER_THAN_OR_EQUAL_TO,
+        LESSER_THAN,
+        LESSER_THAN_OR_EQUAL_TO,
+        EQUAL_TO
+    }
 
     struct ConditionLockedDeposit {
         address tokenAddress;
@@ -32,19 +38,45 @@ contract ConditionalVault is Ownable {
     }
 
     mapping(address => mapping(address => uint256)) public balances;
+    mapping(address => ConditionLockedDeposit[]) public conditionLockedDeposits;
 
-    function deposit(address _tokenAddress, uint256 amount) external {
+    event NewConditionLockedDeposit(
+        ConditionLockedDeposit conditionLockedDeposit
+    );
+
+    function createConditionLockedDeposit(
+        address _tokenAddress,
+        address _conditionOracleAddress,
+        int256 _requiredOracleAnswer,
+        uint8 _conditionOperator,
+        uint256 _amount
+    ) external {
         require(isWhitelisted(_tokenAddress), "token is not on whitelist");
 
         require(
             IERC20(_tokenAddress).transferFrom(
                 msg.sender,
                 address(this),
-                amount
+                _amount
             ),
-            "token transfer failed"
+            "token transfer to contract failed"
         );
-        balances[msg.sender][_tokenAddress] += amount;
+
+        conditionLockedDeposits[msg.sender].push(
+            ConditionLockedDeposit(
+                _tokenAddress,
+                _conditionOracleAddress,
+                _requiredOracleAnswer,
+                ComparisonOperator(_conditionOperator),
+                _amount,
+                block.timestamp
+            )
+        );
+
+        ConditionLockedDeposit[] memory deposits =
+            conditionLockedDeposits[msg.sender];
+
+        emit NewConditionLockedDeposit(deposits[deposits.length - 1]);
     }
 
     function whitelistToken(address _tokenAddress) external onlyOwner {

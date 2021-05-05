@@ -31,6 +31,9 @@ export default {
   },
   defaultNetwork: "hardhat",
   mocha: {
-    timeout: 10000000,
+    timeout: 20000,
+  },
+  gasReporter: {
+    currency: "USD",
   },
 };

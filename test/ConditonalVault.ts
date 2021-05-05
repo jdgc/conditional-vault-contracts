@@ -43,69 +43,53 @@ describe("ConditionalVault", function () {
     });
   });
 
-  describe("deposit", function () {
-    const { deployMockContract } = waffle;
-    context("whitelisted token", function () {
-      it("updates the user's token balance", async function () {
-        const [deployer, userAccount] = await ethers.getSigners();
-        const mockERC20 = await deployMockContract(deployer, IERC20.abi);
-        const transferAmount = 1000;
+  describe("createConditionLockedDeposit", function () {
+    describe("whitelisted token", async function () {
+      const { deployMockContract } = waffle;
+      // chainlink mainnet address
+      const ETHUSD_address = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
+      const [deployer, userAccount] = await ethers.getSigners();
+      const mockERC20 = await deployMockContract(deployer, IERC20.abi);
+      const depositAmount = 1000;
+      const conditionValue = 400000000;
 
-        await mockERC20.mock.balanceOf
-          .withArgs(conditionalVault.address)
-          .returns(1001);
-        await conditionalVault.whitelistToken(mockERC20.address);
-        await mockERC20.mock.transferFrom
-          .withArgs(
-            userAccount.address,
-            conditionalVault.address,
-            transferAmount
-          )
-          .returns(true);
+      describe("ERC20 token transfer succeeds", function () {
+        before(async () => {
+          await mockERC20.mock.balanceOf
+            .withArgs(conditionalVault.address)
+            .returns(1001);
+          await conditionalVault.whitelistToken(mockERC20.address);
+          await mockERC20.mock.transferFrom
+            .withArgs(
+              userAccount.address,
+              conditionalVault.address,
+              depositAmount
+            )
+            .returns(true);
+        });
 
-        await expect(
-          conditionalVault
-            .connect(userAccount)
-            .deposit(mockERC20.address, transferAmount)
-        ).to.not.be.reverted;
+        it("does not revert", async function () {
+          await expect(
+            conditionalVault
+              .connect(userAccount)
+              .createConditionLockedDeposit(
+                mockERC20.address,
+                ETHUSD_address,
+                conditionValue,
+                0,
+                depositAmount
+              )
+          ).to.not.be.reverted;
+        });
 
-        expect(
-          await conditionalVault.balances(
-            userAccount.address,
-            mockERC20.address
-          )
-        ).to.eq(transferAmount);
-      });
-
-      it("reverts without updating balance if the ERC20 transfer fails", async function () {
-        const [deployer, userAccount] = await ethers.getSigners();
-        const mockERC20 = await deployMockContract(deployer, IERC20.abi);
-        const transferAmount = 1000;
-
-        await mockERC20.mock.balanceOf
-          .withArgs(conditionalVault.address)
-          .returns(1001);
-        await conditionalVault.whitelistToken(mockERC20.address);
-        await mockERC20.mock.transferFrom
-          .withArgs(
-            userAccount.address,
-            conditionalVault.address,
-            transferAmount
-          )
-          .returns(false);
-
-        await expect(
-          conditionalVault
-            .connect(userAccount)
-            .deposit(mockERC20.address, transferAmount)
-        ).to.be.reverted;
-
-        expect(
-          await conditionalVault.balances(
-            userAccount.address,
-            mockERC20.address
-          )
-        ).to.eq(0);
+        it("creates a new ConditionLockedDeposit", async function () {
+          expect(
+            await conditionalVault.conditionLockedDeposits(
+              userAccount.address,
+              0
+            )
+          ).to.not.be.null;
+        });
       });
     });
   });
