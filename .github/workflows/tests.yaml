@@ -2,9 +2,9 @@ name: tests
 
 on:
   push:
-    branches: '*'
+    branches: "*"
   pull_request:
-    branches: '*'
+    branches: "*"
 
 jobs:
   hardhat:
@@ -17,7 +17,7 @@ jobs:
       - name: setup-node@v1
         uses: actions/setup-node@v1
         with:
-          node-version: '14.x'
+          node-version: "14.x"
 
       - name: npm install
         run: npm install

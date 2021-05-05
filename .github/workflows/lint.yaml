@@ -1,10 +1,10 @@
-name: lint 
+name: lint
 
 on:
   push:
-    branches: '*'
+    branches: "*"
   pull_request:
-    branches: '*'
+    branches: "*"
 
 jobs:
   prettier:
@@ -17,10 +17,10 @@ jobs:
       - name: setup-node@v1
         uses: actions/setup-node@v1
         with:
-          node-version: '14.x'
+          node-version: "14.x"
 
       - name: npm install
         run: npm install
 
-      - name: prettier 
-        run: npx prettier --check "contracts/**/*.sol" 
+      - name: prettier
+        run: npx prettier --check "contracts/**/*.sol" "test/**"
