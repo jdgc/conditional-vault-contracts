@@ -2,4 +2,4 @@
 /cache
 package-lock.json
 .nvimlog
-
+.env

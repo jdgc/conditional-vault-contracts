@@ -17,27 +17,30 @@ pragma solidity ^0.8.3;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract ConditionalVault is Ownable {
+import "./PriceConsumerV3.sol";
+
+import "hardhat/console.sol";
+
+contract ConditionalVault is Ownable, PriceConsumerV3 {
     address[] public tokenWhitelist;
 
     enum ComparisonOperator {
         GREATER_THAN,
         GREATER_THAN_OR_EQUAL_TO,
-        LESSER_THAN,
-        LESSER_THAN_OR_EQUAL_TO,
+        LESS_THAN,
+        LESS_THAN_OR_EQUAL_TO,
         EQUAL_TO
     }
 
     struct ConditionLockedDeposit {
         address tokenAddress;
         address conditionOracleAddress;
-        int256 requiredOracleAnswer;
+        int256 conditionOracleValue;
         ComparisonOperator conditionOperator;
         uint256 amount;
         uint256 timestamp;
     }
 
-    mapping(address => mapping(address => uint256)) public balances;
     mapping(address => ConditionLockedDeposit[]) public conditionLockedDeposits;
 
     event NewConditionLockedDeposit(
@@ -47,7 +50,7 @@ contract ConditionalVault is Ownable {
     function createConditionLockedDeposit(
         address _tokenAddress,
         address _conditionOracleAddress,
-        int256 _requiredOracleAnswer,
+        int256 _conditionOracleValue,
         uint8 _conditionOperator,
         uint256 _amount
     ) external {
@@ -66,7 +69,7 @@ contract ConditionalVault is Ownable {
             ConditionLockedDeposit(
                 _tokenAddress,
                 _conditionOracleAddress,
-                _requiredOracleAnswer,
+                _conditionOracleValue,
                 ComparisonOperator(_conditionOperator),
                 _amount,
                 block.timestamp
@@ -80,9 +83,32 @@ contract ConditionalVault is Ownable {
     }
 
     function whitelistToken(address _tokenAddress) external onlyOwner {
-        // check to ensure address is valid token before adding
-        require(IERC20(_tokenAddress).balanceOf(address(this)) >= 0);
+        require(!isWhitelisted(_tokenAddress), "token already whitelisted");
+        require(IERC20(_tokenAddress).balanceOf(address(this)) >= 0, "invalid token address");
+
         tokenWhitelist.push(_tokenAddress);
+    }
+
+    function conditionSatisfied(address _owner, uint256 _depositIndex) public view returns (bool) {
+      ConditionLockedDeposit memory deposit = conditionLockedDeposits[_owner][_depositIndex];
+      (, int256 price, , ,) = getLatestRoundDataFor(deposit.conditionOracleAddress);
+
+      console.logInt(price);
+
+      // this is more gas efficient than assembly switch
+      if (deposit.conditionOperator == ComparisonOperator.GREATER_THAN) {
+        return(price > deposit.conditionOracleValue);
+      } else if (deposit.conditionOperator == ComparisonOperator.LESS_THAN) {
+        return(price < deposit.conditionOracleValue);
+      } else if (deposit.conditionOperator == ComparisonOperator.GREATER_THAN_OR_EQUAL_TO) {
+        return(price >= deposit.conditionOracleValue);
+      } else if (deposit.conditionOperator == ComparisonOperator.LESS_THAN_OR_EQUAL_TO) {
+        return(price <= deposit.conditionOracleValue);
+      } else if (deposit.conditionOperator == ComparisonOperator.EQUAL_TO) {
+        return(price == deposit.conditionOracleValue);
+      } else {
+        revert("invalid comparison operator in deposit");
+      }
     }
 
     function isWhitelisted(address _tokenAddress) internal view returns (bool) {

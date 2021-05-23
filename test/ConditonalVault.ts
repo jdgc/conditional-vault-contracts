@@ -1,16 +1,60 @@
 import { ethers, waffle } from "hardhat";
 import { Contract, ContractFactory } from "ethers";
+import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 
 import * as IERC20 from "../artifacts/@openzeppelin/contracts/token/ERC20/IERC20.sol/IERC20.json";
 
-describe("ConditionalVault", function () {
+describe("ConditionalVault", async function () {
+  const { deployMockContract } = waffle;
   let ConditionalVault: ContractFactory;
   let conditionalVault: Contract;
+  let deployer: SignerWithAddress;
+  let userAccount: SignerWithAddress;
+  let mockERC20;
 
   beforeEach(async function () {
     ConditionalVault = await ethers.getContractFactory("ConditionalVault");
     conditionalVault = await ConditionalVault.deploy();
+    [deployer, userAccount] = await ethers.getSigners();
+  });
+
+  describe("conditionSatisfied", function() {
+    const depositAmount = 1000;
+    let ETHUSD_address = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
+    let conditionValue = 400000000;
+
+
+    beforeEach(async function () {
+      const mockERC20 = await deployMockContract(deployer, IERC20.abi);
+
+      await mockERC20.mock.balanceOf
+        .withArgs(conditionalVault.address)
+        .returns(1001);
+      await conditionalVault.whitelistToken(mockERC20.address);
+      await mockERC20.mock.transferFrom
+        .withArgs(
+          userAccount.address,
+          conditionalVault.address,
+          depositAmount
+        )
+        .returns(true);
+      await
+      conditionalVault
+        .connect(userAccount)
+        .createConditionLockedDeposit(
+          mockERC20.address,
+          ETHUSD_address,
+          conditionValue,
+          1,
+          depositAmount
+        )
+    });
+
+
+    it("returns true if the deposit condition is met", async function() {
+      expect(await conditionalVault.conditionSatisfied(userAccount.address, 0)).to.eq(false);  
+    });  
   });
 
   describe("whitelistToken", function () {
@@ -43,17 +87,16 @@ describe("ConditionalVault", function () {
     });
   });
 
-  describe("createConditionLockedDeposit", function () {
-    describe("whitelisted token", async function () {
+  describe("createConditionLockedDeposit", async function () {
       const { deployMockContract } = waffle;
-      // chainlink mainnet address
       const ETHUSD_address = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
       const [deployer, userAccount] = await ethers.getSigners();
       const mockERC20 = await deployMockContract(deployer, IERC20.abi);
       const depositAmount = 1000;
       const conditionValue = 400000000;
 
-      describe("ERC20 token transfer succeeds", function () {
+    context("whitelisted token", async function () {
+      context("ERC20 token transfer succeeds", async function () {
         before(async () => {
           await mockERC20.mock.balanceOf
             .withArgs(conditionalVault.address)
@@ -83,14 +126,40 @@ describe("ConditionalVault", function () {
         });
 
         it("creates a new ConditionLockedDeposit", async function () {
-          expect(
-            await conditionalVault.conditionLockedDeposits(
-              userAccount.address,
-              0
-            )
-          ).to.not.be.null;
+          const userDeposit = await conditionalVault.conditionLockedDeposits(
+            userAccount.address,
+            0
+          );
+          expect(userDeposit).to.not.be.null;
+          expect(userDeposit.amount).to.eq(depositAmount);
         });
       });
+
+        context("ERC20 Token Transfer fails", async function() {
+          before(async () => {
+            await mockERC20.mock.transferFrom
+              .withArgs(
+                userAccount.address,
+                conditionalVault.address,
+                depositAmount
+              )
+              .returns(false);
+          });
+
+          it("reverts", async function() {
+            await expect(
+              conditionalVault
+              .connect(userAccount)
+              .createConditionLockedDeposit(
+                mockERC20.address,
+                ETHUSD_address,
+                conditionValue,
+                0,
+                depositAmount
+              )
+            ).to.be.reverted;
+          })
+        })
     });
   });
 });
