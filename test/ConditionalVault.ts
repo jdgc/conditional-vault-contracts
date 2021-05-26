@@ -35,18 +35,20 @@ describe("ConditionalVault", async function () {
       await mockERC20.mock.transferFrom
         .withArgs(userAccount.address, conditionalVault.address, depositAmount)
         .returns(true);
-      await conditionalVault.connect(userAccount).createConditionLockedDeposit(
-        mockERC20.address,
-        ETHUSD_address,
-        conditionValue,
-        conditionOperator,
-        depositAmount
-      );
-    };
+      await conditionalVault
+        .connect(userAccount)
+        .createConditionLockedDeposit(
+          mockERC20.address,
+          ETHUSD_address,
+          conditionValue,
+          conditionOperator,
+          depositAmount
+        );
+    }
 
     it("returns true if the deposit condition is met", async function () {
       conditionValue = 400000000;
-      conditionOperator = 0; // greater than 
+      conditionOperator = 0; // greater than
       await setup();
 
       expect(
@@ -56,10 +58,12 @@ describe("ConditionalVault", async function () {
 
     it("returns false if the deposit condition is not met", async function () {
       conditionValue = 400000000;
-      conditionOperator = 2; // less than 
+      conditionOperator = 2; // less than
       await setup();
 
-      expect(await conditionalVault.conditionSatisfied(userAccount.address, 0)).to.eq(false)
+      expect(
+        await conditionalVault.conditionSatisfied(userAccount.address, 0)
+      ).to.eq(false);
     });
   });
 
