@@ -4,7 +4,6 @@ pragma solidity ^0.8.3;
 
 // things i want this to do:
 // deposit ETH / tokens
-// deposit that into yearn v2 (zap eth into STETH? check return?)
 
 // timelock:
 // dont allow withdraw before timestamp
@@ -84,31 +83,47 @@ contract ConditionalVault is Ownable, PriceConsumerV3 {
 
     function whitelistToken(address _tokenAddress) external onlyOwner {
         require(!isWhitelisted(_tokenAddress), "token already whitelisted");
-        require(IERC20(_tokenAddress).balanceOf(address(this)) >= 0, "invalid token address");
+        require(
+            IERC20(_tokenAddress).balanceOf(address(this)) >= 0,
+            "invalid token address"
+        );
 
         tokenWhitelist.push(_tokenAddress);
     }
 
-    function conditionSatisfied(address _owner, uint256 _depositIndex) public view returns (bool) {
-      ConditionLockedDeposit memory deposit = conditionLockedDeposits[_owner][_depositIndex];
-      (, int256 price, , ,) = getLatestRoundDataFor(deposit.conditionOracleAddress);
+    function conditionSatisfied(address _owner, uint256 _depositIndex)
+        public
+        view
+        returns (bool)
+    {
+        ConditionLockedDeposit memory deposit =
+            conditionLockedDeposits[_owner][_depositIndex];
+        (, int256 price, , , ) =
+            getLatestRoundDataFor(deposit.conditionOracleAddress);
 
-      console.logInt(price);
+        bool isSatisfied;
 
-      // this is more gas efficient than assembly switch
-      if (deposit.conditionOperator == ComparisonOperator.GREATER_THAN) {
-        return(price > deposit.conditionOracleValue);
-      } else if (deposit.conditionOperator == ComparisonOperator.LESS_THAN) {
-        return(price < deposit.conditionOracleValue);
-      } else if (deposit.conditionOperator == ComparisonOperator.GREATER_THAN_OR_EQUAL_TO) {
-        return(price >= deposit.conditionOracleValue);
-      } else if (deposit.conditionOperator == ComparisonOperator.LESS_THAN_OR_EQUAL_TO) {
-        return(price <= deposit.conditionOracleValue);
-      } else if (deposit.conditionOperator == ComparisonOperator.EQUAL_TO) {
-        return(price == deposit.conditionOracleValue);
-      } else {
-        revert("invalid comparison operator in deposit");
-      }
+        if (deposit.conditionOperator == ComparisonOperator.GREATER_THAN) {
+            isSatisfied = (price > deposit.conditionOracleValue);
+        } else if (deposit.conditionOperator == ComparisonOperator.LESS_THAN) {
+            isSatisfied = (price < deposit.conditionOracleValue);
+        } else if (
+            deposit.conditionOperator ==
+            ComparisonOperator.GREATER_THAN_OR_EQUAL_TO
+        ) {
+            isSatisfied = (price >= deposit.conditionOracleValue);
+        } else if (
+            deposit.conditionOperator ==
+            ComparisonOperator.LESS_THAN_OR_EQUAL_TO
+        ) {
+            isSatisfied = (price <= deposit.conditionOracleValue);
+        } else if (deposit.conditionOperator == ComparisonOperator.EQUAL_TO) {
+            isSatisfied = (price == deposit.conditionOracleValue);
+        } else {
+            revert("invalid comparison operator in deposit");
+        }
+
+        return isSatisfied;
     }
 
     function isWhitelisted(address _tokenAddress) internal view returns (bool) {

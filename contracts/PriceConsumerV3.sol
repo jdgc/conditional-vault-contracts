@@ -21,7 +21,11 @@ contract PriceConsumerV3 {
         return priceFeed.latestRoundData();
     }
 
-    function getPriceFeedInterface(address _priceFeed) public pure returns (AggregatorV3Interface) {
+    function getPriceFeedInterface(address _priceFeed)
+        public
+        pure
+        returns (AggregatorV3Interface)
+    {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(_priceFeed);
         return priceFeed;
     }

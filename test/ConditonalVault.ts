@@ -11,7 +11,6 @@ describe("ConditionalVault", async function () {
   let conditionalVault: Contract;
   let deployer: SignerWithAddress;
   let userAccount: SignerWithAddress;
-  let mockERC20;
 
   beforeEach(async function () {
     ConditionalVault = await ethers.getContractFactory("ConditionalVault");
@@ -19,13 +18,14 @@ describe("ConditionalVault", async function () {
     [deployer, userAccount] = await ethers.getSigners();
   });
 
-  describe("conditionSatisfied", function() {
+  describe("conditionSatisfied", function () {
     const depositAmount = 1000;
-    let ETHUSD_address = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
-    let conditionValue = 400000000;
+    const ETHUSD_address = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419"; // chainlink mainnet
 
+    let conditionValue: number;
+    let conditionOperator: number; // enum
 
-    beforeEach(async function () {
+    async function setup() {
       const mockERC20 = await deployMockContract(deployer, IERC20.abi);
 
       await mockERC20.mock.balanceOf
@@ -33,28 +33,34 @@ describe("ConditionalVault", async function () {
         .returns(1001);
       await conditionalVault.whitelistToken(mockERC20.address);
       await mockERC20.mock.transferFrom
-        .withArgs(
-          userAccount.address,
-          conditionalVault.address,
-          depositAmount
-        )
+        .withArgs(userAccount.address, conditionalVault.address, depositAmount)
         .returns(true);
-      await
-      conditionalVault
-        .connect(userAccount)
-        .createConditionLockedDeposit(
-          mockERC20.address,
-          ETHUSD_address,
-          conditionValue,
-          1,
-          depositAmount
-        )
+      await conditionalVault.connect(userAccount).createConditionLockedDeposit(
+        mockERC20.address,
+        ETHUSD_address,
+        conditionValue,
+        conditionOperator,
+        depositAmount
+      );
+    };
+
+    it("returns true if the deposit condition is met", async function () {
+      conditionValue = 400000000;
+      conditionOperator = 0; // greater than 
+      await setup();
+
+      expect(
+        await conditionalVault.conditionSatisfied(userAccount.address, 0)
+      ).to.eq(true);
     });
 
+    it("returns false if the deposit condition is not met", async function () {
+      conditionValue = 400000000;
+      conditionOperator = 2; // less than 
+      await setup();
 
-    it("returns true if the deposit condition is met", async function() {
-      expect(await conditionalVault.conditionSatisfied(userAccount.address, 0)).to.eq(false);  
-    });  
+      expect(await conditionalVault.conditionSatisfied(userAccount.address, 0)).to.eq(false)
+    });
   });
 
   describe("whitelistToken", function () {
@@ -88,12 +94,12 @@ describe("ConditionalVault", async function () {
   });
 
   describe("createConditionLockedDeposit", async function () {
-      const { deployMockContract } = waffle;
-      const ETHUSD_address = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
-      const [deployer, userAccount] = await ethers.getSigners();
-      const mockERC20 = await deployMockContract(deployer, IERC20.abi);
-      const depositAmount = 1000;
-      const conditionValue = 400000000;
+    const { deployMockContract } = waffle;
+    const ETHUSD_address = "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419";
+    const [deployer, userAccount] = await ethers.getSigners();
+    const mockERC20 = await deployMockContract(deployer, IERC20.abi);
+    const depositAmount = 1000;
+    const conditionValue = 400000000;
 
     context("whitelisted token", async function () {
       context("ERC20 token transfer succeeds", async function () {
@@ -135,20 +141,20 @@ describe("ConditionalVault", async function () {
         });
       });
 
-        context("ERC20 Token Transfer fails", async function() {
-          before(async () => {
-            await mockERC20.mock.transferFrom
-              .withArgs(
-                userAccount.address,
-                conditionalVault.address,
-                depositAmount
-              )
-              .returns(false);
-          });
+      context("ERC20 Token Transfer fails", async function () {
+        before(async () => {
+          await mockERC20.mock.transferFrom
+            .withArgs(
+              userAccount.address,
+              conditionalVault.address,
+              depositAmount
+            )
+            .returns(false);
+        });
 
-          it("reverts", async function() {
-            await expect(
-              conditionalVault
+        it("reverts", async function () {
+          await expect(
+            conditionalVault
               .connect(userAccount)
               .createConditionLockedDeposit(
                 mockERC20.address,
@@ -157,9 +163,9 @@ describe("ConditionalVault", async function () {
                 0,
                 depositAmount
               )
-            ).to.be.reverted;
-          })
-        })
+          ).to.be.reverted;
+        });
+      });
     });
   });
 });
