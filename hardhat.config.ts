@@ -35,5 +35,6 @@ export default {
   },
   gasReporter: {
     currency: "USD",
+    coinmarketcap: process.env.COINMARKETCAP_API_KEY,
   },
 };
