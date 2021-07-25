@@ -22,5 +22,8 @@
     "@chainlink/contracts": "^0.1.7",
     "@openzeppelin/contracts": "^4.1.0",
     "dotenv": "^8.2.0"
+  },
+  "prettier": {
+    "printWidth": 100  
   }
 }
