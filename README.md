@@ -1,6 +1,6 @@
 ## conditional vault
 
-Some simple contracts that demonstrate how ERC20 tokens can be locked until a specified condition is true as reported by chainlink oracles.
+Some simple contracts that demonstrate how tokens can be locked until a specified condition is true as reported by chainlink oracles.
 Some use cases for this might be locking funds until a market index is above a key level, or until the price of the asset itself reaches a target.
 
 While it has limited practical use now, this could potentially be expanded into a useful protocol by adding some of the following:
