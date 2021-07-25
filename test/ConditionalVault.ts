@@ -119,9 +119,6 @@ describe("ConditionalVault", async function () {
 
       await mockERC20.mock.transfer.withArgs(userAccount.address, depositAmount).returns(true);
 
-      console.log(
-        await conditionalVault.connect(userAccount).conditionLockedDeposits(userAccount.address, 0)
-      );
       expect(await conditionalVault.connect(userAccount).withdrawConditionLockedDeposit(0)).to.not
         .be.reverted;
     });
@@ -165,7 +162,6 @@ describe("ConditionalVault", async function () {
             0
           );
           expect(userDeposit).to.not.be.null;
-          console.log(userDeposit.amount, depositAmount);
           expect(userDeposit.amount).to.eq(depositAmount);
         });
       });
