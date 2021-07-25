@@ -64,6 +64,10 @@ contract ConditionalVault is Ownable, PriceConsumerV3, TokenWhitelist {
         require(conditionSatisfied(msg.sender, _depositIndex), "withdraw condition not satisfied");
 
         ConditionLockedDeposit memory deposit = conditionLockedDeposits[msg.sender][_depositIndex];
+        require(
+            IERC20(deposit.tokenAddress).balanceOf(address(this)) >= deposit.amount,
+            "not enough contract balance to satisfy withdraw request"
+        );
         delete conditionLockedDeposits[msg.sender][_depositIndex];
 
         require(
