@@ -5,9 +5,6 @@ pragma solidity ^0.8.3;
 // things i want this to do:
 // deposit ETH / tokens
 
-// timelock:
-// dont allow withdraw before timestamp
-
 // condition lock:
 // dont allow withdraw if condition returns false (chainlink oracle report)
 
@@ -17,12 +14,11 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./PriceConsumerV3.sol";
+import "./TokenWhitelist.sol";
 
 import "hardhat/console.sol";
 
-contract ConditionalVault is Ownable, PriceConsumerV3 {
-    address[] public tokenWhitelist;
-
+contract ConditionalVault is Ownable, PriceConsumerV3, TokenWhitelist {
     enum ComparisonOperator {
         GREATER_THAN,
         GREATER_THAN_OR_EQUAL_TO,
@@ -42,9 +38,7 @@ contract ConditionalVault is Ownable, PriceConsumerV3 {
 
     mapping(address => ConditionLockedDeposit[]) public conditionLockedDeposits;
 
-    event NewConditionLockedDeposit(
-        ConditionLockedDeposit conditionLockedDeposit
-    );
+    event NewConditionLockedDeposit(ConditionLockedDeposit conditionLockedDeposit);
 
     function createConditionLockedDeposit(
         address _tokenAddress,
@@ -56,11 +50,7 @@ contract ConditionalVault is Ownable, PriceConsumerV3 {
         require(isWhitelisted(_tokenAddress), "token is not on whitelist");
 
         require(
-            IERC20(_tokenAddress).transferFrom(
-                msg.sender,
-                address(this),
-                _amount
-            ),
+            IERC20(_tokenAddress).transferFrom(msg.sender, address(this), _amount),
             "token transfer to contract failed"
         );
 
@@ -75,31 +65,36 @@ contract ConditionalVault is Ownable, PriceConsumerV3 {
             )
         );
 
-        ConditionLockedDeposit[] memory deposits =
-            conditionLockedDeposits[msg.sender];
+        ConditionLockedDeposit[] memory deposits = conditionLockedDeposits[msg.sender];
 
         emit NewConditionLockedDeposit(deposits[deposits.length - 1]);
     }
 
-    function whitelistToken(address _tokenAddress) external onlyOwner {
-        require(!isWhitelisted(_tokenAddress), "token already whitelisted");
-        require(
-            IERC20(_tokenAddress).balanceOf(address(this)) >= 0,
-            "invalid token address"
-        );
+    function withdrawConditionLockedDeposit(uint256 _depositIndex) external {
+        require(conditionSatisfied(msg.sender, _depositIndex), "withdraw condition not satisfied");
 
-        tokenWhitelist.push(_tokenAddress);
+        ConditionLockedDeposit memory deposit = conditionLockedDeposits[msg.sender][_depositIndex];
+        delete conditionLockedDeposits[msg.sender][_depositIndex];
+
+        console.log("token address: %s", deposit.tokenAddress);
+        console.log("deposit amount: %d", deposit.amount);
+        console.log("address: %s", address(this));
+        console.log("sender address: %s", msg.sender);
+
+        require(
+            IERC20(deposit.tokenAddress).transfer(msg.sender, deposit.amount),
+            "token transfer failed"
+        );
     }
 
-    function conditionSatisfied(address _owner, uint256 _depositIndex)
-        public
-        view
-        returns (bool)
-    {
-        ConditionLockedDeposit memory deposit =
-            conditionLockedDeposits[_owner][_depositIndex];
-        (, int256 price, , , ) =
-            getLatestRoundDataFor(deposit.conditionOracleAddress);
+    function hardWithdrawDeposit(uint256 _depositIndex) external {
+        // slash fee - contract var
+        // TODO: implement
+    }
+
+    function conditionSatisfied(address _owner, uint256 _depositIndex) public view returns (bool) {
+        ConditionLockedDeposit memory deposit = conditionLockedDeposits[_owner][_depositIndex];
+        (, int256 price, , , ) = getLatestRoundDataFor(deposit.conditionOracleAddress);
 
         bool isSatisfied;
 
@@ -107,15 +102,9 @@ contract ConditionalVault is Ownable, PriceConsumerV3 {
             isSatisfied = (price > deposit.conditionOracleValue);
         } else if (deposit.conditionOperator == ComparisonOperator.LESS_THAN) {
             isSatisfied = (price < deposit.conditionOracleValue);
-        } else if (
-            deposit.conditionOperator ==
-            ComparisonOperator.GREATER_THAN_OR_EQUAL_TO
-        ) {
+        } else if (deposit.conditionOperator == ComparisonOperator.GREATER_THAN_OR_EQUAL_TO) {
             isSatisfied = (price >= deposit.conditionOracleValue);
-        } else if (
-            deposit.conditionOperator ==
-            ComparisonOperator.LESS_THAN_OR_EQUAL_TO
-        ) {
+        } else if (deposit.conditionOperator == ComparisonOperator.LESS_THAN_OR_EQUAL_TO) {
             isSatisfied = (price <= deposit.conditionOracleValue);
         } else if (deposit.conditionOperator == ComparisonOperator.EQUAL_TO) {
             isSatisfied = (price == deposit.conditionOracleValue);
@@ -124,14 +113,5 @@ contract ConditionalVault is Ownable, PriceConsumerV3 {
         }
 
         return isSatisfied;
-    }
-
-    function isWhitelisted(address _tokenAddress) internal view returns (bool) {
-        for (uint256 i = 0; i < tokenWhitelist.length; i++) {
-            if (tokenWhitelist[i] == _tokenAddress) {
-                return true;
-            }
-        }
-        return false;
     }
 }
