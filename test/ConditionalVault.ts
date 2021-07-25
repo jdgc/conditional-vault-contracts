@@ -87,7 +87,6 @@ describe("ConditionalVault", async function () {
 
     it("should fail when given an address value that is not a valid ERC20 token", async function () {
       const badAddress = "0x7B175474E89094C44Da98b954EedeAC495271d0G";
-
       const [_, userAccount] = await ethers.getSigners();
 
       await expect(conditionalVault.connect(userAccount).whitelistToken(badAddress)).to.be.reverted;

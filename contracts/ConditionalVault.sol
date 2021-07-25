@@ -2,21 +2,11 @@
 
 pragma solidity ^0.8.3;
 
-// things i want this to do:
-// deposit ETH / tokens
-
-// condition lock:
-// dont allow withdraw if condition returns false (chainlink oracle report)
-
-// slash 5% for emergency withdraw
-
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "./PriceConsumerV3.sol";
 import "./TokenWhitelist.sol";
-
-import "hardhat/console.sol";
 
 contract ConditionalVault is Ownable, PriceConsumerV3, TokenWhitelist {
     enum ComparisonOperator {
@@ -76,20 +66,10 @@ contract ConditionalVault is Ownable, PriceConsumerV3, TokenWhitelist {
         ConditionLockedDeposit memory deposit = conditionLockedDeposits[msg.sender][_depositIndex];
         delete conditionLockedDeposits[msg.sender][_depositIndex];
 
-        console.log("token address: %s", deposit.tokenAddress);
-        console.log("deposit amount: %d", deposit.amount);
-        console.log("address: %s", address(this));
-        console.log("sender address: %s", msg.sender);
-
         require(
             IERC20(deposit.tokenAddress).transfer(msg.sender, deposit.amount),
             "token transfer failed"
         );
-    }
-
-    function hardWithdrawDeposit(uint256 _depositIndex) external {
-        // slash fee - contract var
-        // TODO: implement
     }
 
     function conditionSatisfied(address _owner, uint256 _depositIndex) public view returns (bool) {
